@@ -150,13 +150,17 @@
          * This is the most reliable event for getting the video's dimensions.
          */
         video.addEventListener('loadedmetadata', () => {
-            log("Video metadata loaded. 🎬");
-
-            if (video.videoWidth === 0 || video.videoHeight === 0) {
-                log("Error: video dimensions are 0x0.");
-                return;
-            }
-
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        streaming = true;
+        console.log("✅ Video ready: Starting processing...");
+        setTimeout(processVideo, 0);
+    } else {
+        console.warn("⚠️ Video dimensions not ready. Retrying...");
+        setTimeout(() => location.reload(), 500); // Retry after 0.5s
+    }
+});
             // Set container height to match the video's aspect ratio
             const videoContainer = document.getElementById('video-container');
             const aspectRatio = video.videoHeight / video.videoWidth;
