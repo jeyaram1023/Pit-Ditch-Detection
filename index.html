@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>👁️ Pit & Ditch Detection</title>
+    <title>✅ Fixed: Pit & Ditch Detection</title>
     <style>
         :root {
             --neon-green: #39ff14;
+            --danger-red: #ff0000;
             --background-dark: #1a1a1a;
             --font-family: 'Courier New', Courier, monospace;
         }
@@ -29,7 +30,7 @@
         #app-container {
             position: relative;
             width: 100%;
-            max-width: 600px; /* Max width for larger screens */
+            max-width: 600px;
             height: 100%;
             display: flex;
             align-items: center;
@@ -54,9 +55,11 @@
             height: 100%;
             object-fit: cover;
         }
-
+        
+        /* * FIX: Removed 'transform: scaleX(-1);' which was incorrectly mirroring the rear camera view.
+         */
         #video {
-            transform: scaleX(-1); /* Mirror view */
+           /* No mirror transform needed for rear camera */
         }
 
         #canvas {
@@ -98,7 +101,7 @@
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: red;
+            background-color: var(--danger-red);
             color: white;
             padding: 10px 20px;
             border-radius: 5px;
@@ -125,6 +128,7 @@
         <div id="info-text">
             <h2>Pit & Ditch Detection</h2>
             <p>Press "Start Camera" to begin analysis.</p>
+            <p id="opencv-status">Loading Vision Core...</p>
         </div>
 
         <div id="video-container" style="display: none;">
@@ -134,12 +138,12 @@
         </div>
 
         <div id="controls">
-            <button id="camera-btn">Start Camera</button>
+            <button id="camera-btn" disabled>Start Camera</button>
             <button id="flash-btn" style="display: none;">Flash On</button>
         </div>
     </div>
 
-    <script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady();"></script>
+    <script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady();" onerror="onOpenCvError();"></script>
 
     <script>
         // DOM Elements
@@ -150,6 +154,7 @@
         const warningAlert = document.getElementById('warning-alert');
         const videoContainer = document.getElementById('video-container');
         const infoText = document.getElementById('info-text');
+        const opencvStatus = document.getElementById('opencv-status');
         const ctx = canvas.getContext('2d');
 
         // State variables
@@ -158,15 +163,23 @@
         let isFlashOn = false;
         let videoTrack = null;
 
-        // Detection constants
-        const MIN_CONTOUR_AREA = 2500; // Minimum area to be considered a pit/ditch
-        const DETECTION_THRESHOLD = 55; // Lower numbers detect more shadows. Adjust based on lighting.
+        // --- FIX: DETECTION PARAMETERS TUNED FOR HIGHER SENSITIVITY ---
+        const MIN_CONTOUR_AREA = 1500; // Reduced to detect smaller irregularities.
+        const ADAPTIVE_THRESHOLD_BLOCK_SIZE = 35; // Size of the area to analyze. Must be odd.
+        const ADAPTIVE_THRESHOLD_C = 15; // Constant subtracted from the mean. Lower makes it more sensitive to shadows.
 
-        // Main function to run when OpenCV is loaded
+        // --- OpenCV Load Handlers ---
         function onOpenCvReady() {
-            console.log("OpenCV.js is ready.");
-            // Initially the button allows starting the camera.
+            opencvStatus.textContent = "Vision Core Ready.";
+            opencvStatus.style.color = 'var(--neon-green)';
             cameraBtn.disabled = false;
+            console.log("OpenCV.js is ready.");
+        }
+
+        function onOpenCvError() {
+            opencvStatus.textContent = "Error: Vision Core failed to load. Please check connection and refresh.";
+            opencvStatus.style.color = 'var(--danger-red)';
+            console.error("Failed to load OpenCV.js");
         }
         
         // --- Camera Controls ---
@@ -187,7 +200,6 @@
         async function startCamera() {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
-                    // Prefer the rear camera
                     const constraints = {
                         video: {
                             facingMode: 'environment',
@@ -202,16 +214,12 @@
                     isCameraOn = true;
                     videoTrack = stream.getVideoTracks()[0];
                     
-                    // Update UI
                     cameraBtn.textContent = 'Stop Camera';
                     flashBtn.style.display = 'inline-block';
                     videoContainer.style.display = 'block';
                     infoText.style.display = 'none';
 
-                    // Check flash capability
                     checkFlashCapability();
-                    
-                    // Start processing loop
                     requestAnimationFrame(processVideo);
 
                 } catch (error) {
@@ -228,7 +236,6 @@
             isCameraOn = false;
             video.srcObject = null;
 
-            // Update UI
             cameraBtn.textContent = 'Start Camera';
             flashBtn.style.display = 'none';
             flashBtn.textContent = 'Flash On';
@@ -242,11 +249,9 @@
             try {
                 const capabilities = videoTrack.getCapabilities();
                 if (!capabilities.torch) {
-                    console.log("Flash (torch) not available on this device.");
-                    flashBtn.style.display = 'none'; // Hide button if no flash
+                    flashBtn.style.display = 'none';
                 }
             } catch (error) {
-                console.error("Error checking flash capabilities:", error);
                 flashBtn.style.display = 'none';
             }
         }
@@ -267,11 +272,9 @@
                 return;
             }
 
-            // Set canvas size to match video display size
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             
-            // Draw video frame to a hidden canvas for processing
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             let src = cv.imread(canvas);
@@ -281,54 +284,47 @@
             let hierarchy = new cv.Mat();
             let dangerDetected = false;
 
-            // Convert to grayscale
             cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
-            // Apply adaptive thresholding to find dark regions (potential pits)
-            // This works well in varied lighting by considering local pixel neighborhoods.
-            // THRESH_BINARY_INV inverts the colors, making dark areas white for contour detection.
-            cv.adaptiveThreshold(gray, processed, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 21, DETECTION_THRESHOLD);
-            
-            // Find contours of the processed (thresholded) image
+            cv.adaptiveThreshold(gray, processed, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, ADAPTIVE_THRESHOLD_BLOCK_SIZE, ADAPTIVE_THRESHOLD_C);
             cv.findContours(processed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-            // Filter contours based on area and draw them
+            // Clear previous drawings
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+
             for (let i = 0; i < contours.size(); ++i) {
                 const contour = contours.get(i);
                 const area = cv.contourArea(contour);
 
                 if (area > MIN_CONTOUR_AREA) {
                     dangerDetected = true;
-                    // Draw a bounding rectangle around the detected danger zone
                     let rect = cv.boundingRect(contour);
-                    let p1 = new cv.Point(rect.x, rect.y);
-                    let p2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
-                    // The video is mirrored, so we must flip the canvas context before drawing
-                    ctx.save();
-                    ctx.scale(-1, 1);
-                    ctx.translate(-canvas.width, 0);
-                    ctx.strokeStyle = '#ff0000'; // Red color for danger
+                    
+                    // --- FIX: DRAWING LOGIC SIMPLIFIED ---
+                    // No need to mirror the canvas context. Draw directly.
+                    ctx.strokeStyle = 'var(--danger-red)';
                     ctx.lineWidth = 5;
-                    ctx.strokeRect(p1.x, p1.y, rect.width, rect.height);
-                    ctx.restore();
+                    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+
+                    // Add a text label
+                    ctx.fillStyle = 'var(--danger-red)';
+                    ctx.font = 'bold 24px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.fillText('PIT/DITCH', rect.x + 5, rect.y - 10);
                 }
                 contour.delete();
             }
             
-            // Show or hide the warning alert
             warningAlert.style.display = dangerDetected ? 'block' : 'none';
 
-            // Clean up memory
             src.delete();
             gray.delete();
             processed.delete();
             contours.delete();
             hierarchy.delete();
             
-            // Continue the loop
             requestAnimationFrame(processVideo);
         }
-
     </script>
 </body>
 </html>
