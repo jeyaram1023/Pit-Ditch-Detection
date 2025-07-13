@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Pit & Ditch Detection</title>
     <style>
+        /* General Styling */
         body {
             background-color: #000;
             color: #0f0;
@@ -17,11 +18,14 @@
             margin: 0;
             overflow: hidden;
         }
+
         h1 {
             text-shadow: 0 0 10px #0f0;
             margin-bottom: 20px;
             text-align: center;
         }
+
+        /* Video Container and Elements */
         #video-container {
             position: relative;
             width: 90vw;
@@ -30,8 +34,9 @@
             border-radius: 15px;
             box-shadow: 0 0 20px #0f0;
             overflow: hidden;
-            /* The height will be set by JS to maintain aspect ratio */
+            /* Height is set dynamically by JavaScript to maintain aspect ratio */
         }
+
         video, canvas {
             position: absolute;
             top: 0;
@@ -40,15 +45,17 @@
             height: 100%;
             border-radius: 13px;
         }
+
         video {
-            z-index: 1;
-            /* Flip video to be a mirror image if using front camera */
-            /* transform: scaleX(-1); */
+            z-index: 1; /* Video is on the bottom layer */
         }
+
         canvas {
-            z-index: 2;
+            z-index: 2; /* OpenCV output is drawn on top */
             opacity: 0.7;
         }
+        
+        /* On-Screen Alerts and Logs */
         #alert-box {
             position: absolute;
             bottom: 20px;
@@ -63,12 +70,13 @@
             display: none;
             z-index: 3;
         }
+
         #log-output {
             position: absolute;
             top: 10px;
             left: 10px;
             font-size: 0.8em;
-            color: #ff0;
+            color: #ff0; /* Yellow for logs */
             z-index: 10;
         }
     </style>
@@ -77,6 +85,7 @@
 
     <h1>Pit & Ditch Detection</h1>
     <div id="log-output">Initializing...</div>
+
     <div id="video-container">
         <video id="video" playsinline autoplay muted></video>
         <canvas id="canvas"></canvas>
@@ -93,13 +102,18 @@
         let streaming = false;
         let cvReady = false;
 
-        // Custom logging function to display status on screen
+        /**
+         * Custom logging function to display status on screen and in the console.
+         */
         function log(message) {
             console.log(message);
             logOutput.innerText = message;
         }
 
-        // 1. Called when the OpenCV script has been loaded
+        /**
+         * 1. Called when the OpenCV script has been loaded.
+         * Sets up a listener for when the runtime is fully initialized.
+         */
         function onOpenCvReady() {
             log("OpenCV script loaded ✅");
             cv['onRuntimeInitialized'] = () => {
@@ -109,7 +123,9 @@
             };
         }
 
-        // 2. Start the camera
+        /**
+         * 2. Requests access to the camera and attaches the stream to the video element.
+         */
         async function startCamera() {
             if (!cvReady) {
                 log("OpenCV not ready. Waiting...");
@@ -118,116 +134,112 @@
             log("Requesting camera access... 📷");
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment' // Use the rear camera
-                    },
+                    video: { facingMode: 'environment' }, // Use the rear camera
                     audio: false
                 });
                 video.srcObject = stream;
-                // `play()` is called automatically by `autoplay` attribute
-
                 log("Camera access granted. Stream attached. ✅");
             } catch (err) {
-                log(`Error accessing camera: ${err.name} - ${err.message}`);
-                alert(`Camera Error: ${err.name}. Please grant camera permission and reload.`);
+                log(`Camera Error: ${err.name} - ${err.message}`);
+                alert(`Camera Error: ${err.name}. Please grant permission and reload.`);
             }
         }
 
-        // 3. Listen for the 'loadedmetadata' event
-        video.addEventListener('loadedmetadata', (e) => {
+        /**
+         * 3. Listens for the 'loadedmetadata' event from the video element.
+         * This is the most reliable event for getting the video's dimensions.
+         */
+        video.addEventListener('loadedmetadata', () => {
             log("Video metadata loaded. 🎬");
 
             if (video.videoWidth === 0 || video.videoHeight === 0) {
-                log("Error: video dimensions are 0x0. Cannot start processing.");
-                alert("Could not get video dimensions. Please try another browser or device.");
+                log("Error: video dimensions are 0x0.");
                 return;
             }
 
-            // Set container height to match video aspect ratio
+            // Set container height to match the video's aspect ratio
             const videoContainer = document.getElementById('video-container');
             const aspectRatio = video.videoHeight / video.videoWidth;
             videoContainer.style.height = `${videoContainer.clientWidth * aspectRatio}px`;
 
-            // Set canvas dimensions to match video
+            // Set canvas dimensions to match the video's native dimensions
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
 
             streaming = true;
             log("Video ready. Starting processing loop... ⚙️");
-            
-            // Start the main processing loop
-            requestAnimationFrame(processVideo);
-
+            requestAnimationFrame(processVideo); // Start the main loop
         }, false);
 
-        // 4. Main processing loop
+        /**
+         * 4. The main processing loop, called for every frame.
+         */
         function processVideo() {
-            if (!streaming || !cvReady) {
+            // Guard clause: If not ready, skip this frame. Prevents errors.
+            if (!streaming || !cvReady || video.videoWidth === 0 || video.videoHeight === 0) {
+                requestAnimationFrame(processVideo);
                 return;
             }
 
-            let cap;
-            let src;
-
+            // Define mats for processing
+            let src, gray, blurred, edges, contours, hierarchy, processed;
+            
             try {
-                // Ensure VideoCapture is initialized only once or properly released
-                cap = new cv.VideoCapture(video);
-                src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+                const cap = new cv.VideoCapture(video);
                 
-                cap.read(src); // Read a frame from the video
+                // Initialize mats
+                src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+                gray = new cv.Mat();
+                blurred = new cv.Mat();
+                edges = new cv.Mat();
+                contours = new cv.MatVector();
+                hierarchy = new cv.Mat();
+                processed = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
 
-                const gray = new cv.Mat();
+                // Start processing pipeline
+                cap.read(src);
                 cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
-                const blurred = new cv.Mat();
                 cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-
-                const edges = new cv.Mat();
                 cv.Canny(blurred, edges, 50, 150);
-
-                const contours = new cv.MatVector();
-                const hierarchy = new cv.Mat();
                 cv.findContours(edges, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
 
-                const processed = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
                 let pitDetected = false;
-
-                const MIN_CONTOUR_AREA = 5000; // Threshold for pit detection
+                const MIN_CONTOUR_AREA = 5000; // Threshold to filter small contours
 
                 for (let i = 0; i < contours.size(); ++i) {
                     const contour = contours.get(i);
                     const area = cv.contourArea(contour);
 
                     if (area > MIN_CONTOUR_AREA) {
-                        const color = new cv.Scalar(0, 0, 255, 255); // Red in BGR format for OpenCV
-                        cv.drawContours(processed, contours, i, color, -1, cv.LINE_8, hierarchy, 100);
+                        const color = new cv.Scalar(0, 0, 255, 255); // Red (in BGR format)
+                        cv.drawContours(processed, contours, i, color, -1); // Fill contour
                         pitDetected = true;
                     }
                 }
                 
-                cv.imshow(canvas, processed); // Display the processed frame on the canvas
+                // Display the final processed image on the canvas
+                cv.imshow(canvas, processed);
+
+                // Show or hide the alert box
                 alertBox.style.display = pitDetected ? 'block' : 'none';
                 if(pitDetected) log("Pit Detected! ⚠️");
 
-
-                // Clean up memory
-                gray.delete();
-                blurred.delete();
-                edges.delete();
-                contours.delete();
-                hierarchy.delete();
-                processed.delete();
-                src.delete();
-
-
             } catch (err) {
                 log(`Error in processing loop: ${err}`);
+            } finally {
+                // Important: Clean up all OpenCV objects to prevent memory leaks
+                if (src) src.delete();
+                if (gray) gray.delete();
+                if (blurred) blurred.delete();
+                if (edges) edges.delete();
+                if (contours) contours.delete();
+                if (hierarchy) hierarchy.delete();
+                if (processed) processed.delete();
             }
 
-            // Schedule the next frame processing
+            // Schedule the next frame to be processed
             requestAnimationFrame(processVideo);
         }
-
     </script>
 </body>
 </html>
