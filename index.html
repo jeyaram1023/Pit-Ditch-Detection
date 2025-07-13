@@ -1,141 +1,233 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pit & Ditch Detection</title>
-  <meta name="mobile-web-app-capable" content="yes">
-  <style>
-    body {
-      background-color: #000;
-      color: #0f0;
-      font-family: 'Courier New', Courier, monospace;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      overflow: hidden;
-    }
-    h1 { text-shadow: 0 0 10px #0f0; margin-bottom: 20px; }
-    #video-container {
-      position: relative;
-      width: 90vw;
-      max-width: 500px;
-      border: 2px solid #0f0;
-      border-radius: 15px;
-      box-shadow: 0 0 20px #0f0;
-      overflow: hidden;
-    }
-    video, canvas {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      border-radius: 13px;
-    }
-    canvas { z-index: 2; opacity: 0.7; }
-    video { z-index: 1; }
-    #alert-box {
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: rgba(255, 0, 0, 0.7);
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 1.2em;
-      display: none;
-      z-index: 3;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pit & Ditch Detection</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            text-shadow: 0 0 10px #0f0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #video-container {
+            position: relative;
+            width: 90vw;
+            max-width: 500px;
+            border: 2px solid #0f0;
+            border-radius: 15px;
+            box-shadow: 0 0 20px #0f0;
+            overflow: hidden;
+            /* The height will be set by JS to maintain aspect ratio */
+        }
+        video, canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 13px;
+        }
+        video {
+            z-index: 1;
+            /* Flip video to be a mirror image if using front camera */
+            /* transform: scaleX(-1); */
+        }
+        canvas {
+            z-index: 2;
+            opacity: 0.7;
+        }
+        #alert-box {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 0, 0, 0.7);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            text-shadow: 0 0 5px #000;
+            display: none;
+            z-index: 3;
+        }
+        #log-output {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 0.8em;
+            color: #ff0;
+            z-index: 10;
+        }
+    </style>
 </head>
 <body>
-  <h1>Pit & Ditch Detection</h1>
-  <div id="video-container">
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
-    <div id="alert-box">⚠️ Pit Detected</div>
-  </div>
 
-  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script>
-  <script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const alertBox = document.getElementById('alert-box');
-    let streaming = false;
+    <h1>Pit & Ditch Detection</h1>
+    <div id="log-output">Initializing...</div>
+    <div id="video-container">
+        <video id="video" playsinline autoplay muted></video>
+        <canvas id="canvas"></canvas>
+        <div id="alert-box">⚠️ Pit Detected</div>
+    </div>
 
-    function onOpenCvReady() {
-      cv['onRuntimeInitialized'] = () => {
-        console.log("OpenCV.js ready");
-        startCamera();
-      };
-    }
+    <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script>
 
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
-        });
-        video.srcObject = stream;
-        video.play();
-      } catch (err) {
-        alert("Camera access denied or error.");
-        console.error(err);
-      }
-    }
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const alertBox = document.getElementById('alert-box');
+        const logOutput = document.getElementById('log-output');
+        let streaming = false;
+        let cvReady = false;
 
-    video.addEventListener('canplay', () => {
-      if (!streaming) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        streaming = true;
-        setTimeout(processVideo, 0);
-      }
-    });
-
-    function processVideo() {
-      if (!streaming) return;
-
-      const src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
-      const cap = new cv.VideoCapture(video);
-      cap.read(src);
-
-      const gray = new cv.Mat();
-      const blurred = new cv.Mat();
-      const edges = new cv.Mat();
-      const contours = new cv.MatVector();
-      const hierarchy = new cv.Mat();
-      const processed = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
-
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-      cv.Canny(blurred, edges, 50, 100, 3, false);
-      cv.findContours(edges, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
-
-      let pitDetected = false;
-      for (let i = 0; i < contours.size(); ++i) {
-        const cnt = contours.get(i);
-        const area = cv.contourArea(cnt, false);
-        if (area > 5000) {
-          const color = new cv.Scalar(255, 0, 0);
-          cv.drawContours(processed, contours, i, color, -1);
-          pitDetected = true;
+        // Custom logging function to display status on screen
+        function log(message) {
+            console.log(message);
+            logOutput.innerText = message;
         }
-      }
 
-      cv.imshow(canvas, processed);
-      alertBox.style.display = pitDetected ? 'block' : 'none';
-      if (pitDetected && 'vibrate' in navigator) navigator.vibrate(200);
+        // 1. Called when the OpenCV script has been loaded
+        function onOpenCvReady() {
+            log("OpenCV script loaded ✅");
+            cv['onRuntimeInitialized'] = () => {
+                cvReady = true;
+                log("OpenCV.js is ready. 🚀");
+                startCamera();
+            };
+        }
 
-      // Cleanup
-      src.delete(); gray.delete(); blurred.delete(); edges.delete();
-      contours.delete(); hierarchy.delete(); processed.delete();
+        // 2. Start the camera
+        async function startCamera() {
+            if (!cvReady) {
+                log("OpenCV not ready. Waiting...");
+                return;
+            }
+            log("Requesting camera access... 📷");
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment' // Use the rear camera
+                    },
+                    audio: false
+                });
+                video.srcObject = stream;
+                // `play()` is called automatically by `autoplay` attribute
 
-      requestAnimationFrame(processVideo);
-    }
-  </script>
+                log("Camera access granted. Stream attached. ✅");
+            } catch (err) {
+                log(`Error accessing camera: ${err.name} - ${err.message}`);
+                alert(`Camera Error: ${err.name}. Please grant camera permission and reload.`);
+            }
+        }
+
+        // 3. Listen for the 'loadedmetadata' event
+        video.addEventListener('loadedmetadata', (e) => {
+            log("Video metadata loaded. 🎬");
+
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                log("Error: video dimensions are 0x0. Cannot start processing.");
+                alert("Could not get video dimensions. Please try another browser or device.");
+                return;
+            }
+
+            // Set container height to match video aspect ratio
+            const videoContainer = document.getElementById('video-container');
+            const aspectRatio = video.videoHeight / video.videoWidth;
+            videoContainer.style.height = `${videoContainer.clientWidth * aspectRatio}px`;
+
+            // Set canvas dimensions to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            streaming = true;
+            log("Video ready. Starting processing loop... ⚙️");
+            
+            // Start the main processing loop
+            requestAnimationFrame(processVideo);
+
+        }, false);
+
+        // 4. Main processing loop
+        function processVideo() {
+            if (!streaming || !cvReady) {
+                return;
+            }
+
+            let cap;
+            let src;
+
+            try {
+                // Ensure VideoCapture is initialized only once or properly released
+                cap = new cv.VideoCapture(video);
+                src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+                
+                cap.read(src); // Read a frame from the video
+
+                const gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+                const blurred = new cv.Mat();
+                cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+
+                const edges = new cv.Mat();
+                cv.Canny(blurred, edges, 50, 150);
+
+                const contours = new cv.MatVector();
+                const hierarchy = new cv.Mat();
+                cv.findContours(edges, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+
+                const processed = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+                let pitDetected = false;
+
+                const MIN_CONTOUR_AREA = 5000; // Threshold for pit detection
+
+                for (let i = 0; i < contours.size(); ++i) {
+                    const contour = contours.get(i);
+                    const area = cv.contourArea(contour);
+
+                    if (area > MIN_CONTOUR_AREA) {
+                        const color = new cv.Scalar(0, 0, 255, 255); // Red in BGR format for OpenCV
+                        cv.drawContours(processed, contours, i, color, -1, cv.LINE_8, hierarchy, 100);
+                        pitDetected = true;
+                    }
+                }
+                
+                cv.imshow(canvas, processed); // Display the processed frame on the canvas
+                alertBox.style.display = pitDetected ? 'block' : 'none';
+                if(pitDetected) log("Pit Detected! ⚠️");
+
+
+                // Clean up memory
+                gray.delete();
+                blurred.delete();
+                edges.delete();
+                contours.delete();
+                hierarchy.delete();
+                processed.delete();
+                src.delete();
+
+
+            } catch (err) {
+                log(`Error in processing loop: ${err}`);
+            }
+
+            // Schedule the next frame processing
+            requestAnimationFrame(processVideo);
+        }
+
+    </script>
 </body>
 </html>
