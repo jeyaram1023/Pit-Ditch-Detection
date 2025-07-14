@@ -76,7 +76,7 @@
             transition: all 0.2s ease;
             text-transform: uppercase;
         }
-        button:active, button:disabled {
+        button:disabled {
             background-color: #333;
             color: #555;
             box-shadow: none;
@@ -134,7 +134,6 @@
 
     <script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady();" onerror="onOpenCvError();"></script>
     <script>
-        // DOM Elements
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const hiddenCanvas = document.getElementById('hidden-canvas');
@@ -147,7 +146,6 @@
         const opencvStatus = document.getElementById('opencv-status');
         const ctx = canvas.getContext('2d');
 
-        // State variables
         let stream = null;
         let isCameraOn = false;
         let isFlashOn = false;
@@ -155,26 +153,21 @@
         let videoTrack = null;
         let processingTimeout;
 
-        // Detection Parameters
         const MIN_CONTOUR_AREA = 1500;
         const ADAPTIVE_THRESHOLD_BLOCK_SIZE = 35;
         const ADAPTIVE_THRESHOLD_C = 15;
 
-        // OpenCV Load Handlers
         function onOpenCvReady() {
             opencvStatus.textContent = "Vision Core Ready.";
             opencvStatus.style.color = 'var(--neon-green)';
             cameraBtn.disabled = false;
-            console.log("OpenCV.js is ready.");
         }
 
         function onOpenCvError() {
             opencvStatus.textContent = "Error: Vision Core failed to load. Please refresh.";
             opencvStatus.style.color = 'var(--danger-red)';
-            console.error("Failed to load OpenCV.js");
         }
 
-        // --- Controls ---
         cameraBtn.addEventListener('click', async () => {
             if (isCameraOn) {
                 stopCamera();
@@ -184,9 +177,7 @@
         });
 
         flashBtn.addEventListener('click', () => {
-            if (videoTrack) {
-                toggleFlash();
-            }
+            if (videoTrack) toggleFlash();
         });
 
         viewSwitchBtn.addEventListener('click', () => {
@@ -211,8 +202,15 @@
                     checkFlashCapability();
                     processVideo();
                 } catch (error) {
-                    console.error("Error accessing camera: ", error);
-                    alert("Could not access camera. Please ensure you are on a secure (HTTPS) connection and have granted camera permission.");
+                    // *** MODIFIED CODE SECTION ***
+                    // Provide more specific error messages to the user.
+                    if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+                        alert("Camera access was denied. Please allow camera permission in your browser settings and reload the page.");
+                    } else if (error.name === "NotFoundError") {
+                         alert("No rear camera was found on your device. This app requires a rear-facing camera.");
+                    } else {
+                        alert(`Could not access camera: ${error.message}. Please ensure you are on a secure (HTTPS) connection.`);
+                    }
                     stopCamera();
                 }
             }
@@ -255,8 +253,7 @@
                 .catch(e => console.error("Error applying flash constraint:", e));
             flashBtn.textContent = isFlashOn ? '💡 Flash Off' : '💡 Flash On';
         }
-
-        // --- Video Processing & Detection ---
+        
         function processVideo() {
             if (!isCameraOn || video.paused || video.ended || typeof cv === 'undefined' || !cv.Mat) {
                 return;
@@ -322,7 +319,7 @@
             contours.delete();
             hierarchy.delete();
             
-            let delay = 1000 / 30 - (Date.now() - begin); // Aim for 30 FPS
+            let delay = 1000 / 30 - (Date.now() - begin);
             processingTimeout = setTimeout(processVideo, delay);
         }
     </script>
