@@ -208,6 +208,7 @@
 
             } catch (error) {
                 console.error("Error accessing camera: ", error);
+                // This is the code that shows the alert in your screenshot
                 alert("Could not access camera. Please ensure you are on HTTPS and have granted permission.");
             }
         }
@@ -273,7 +274,6 @@
             let detectedRects = [];
 
             // --- ✅ UNIFIED CONTOUR PROCESSING & MEMORY FIX ---
-            // This single loop processes contours for both views and prevents memory leaks.
             for (let i = 0; i < contours.size(); ++i) {
                 const contour = contours.get(i);
                 if (cv.contourArea(contour) > MIN_CONTOUR_AREA) {
@@ -282,7 +282,6 @@
                         detectedRects.push(cv.boundingRect(contour));
                     }
                 }
-                // *** CRITICAL FIX: Delete the contour object to prevent memory leak ***
                 contour.delete(); 
             }
 
