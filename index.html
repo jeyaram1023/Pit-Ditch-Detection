@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>👁️ Pit & Ditch Detection v2</title>
+    <title>✅ Stable: Pit & Ditch Detection</title>
     <style>
         :root {
             --neon-green: #39ff14;
@@ -255,70 +255,59 @@
             // Match canvas size to video frame size
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-
+            
             let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
             let gray = new cv.Mat();
             let processed = new cv.Mat();
             let contours = new cv.MatVector();
             let hierarchy = new cv.Mat();
             
-            // Draw video frame to canvas and read it into a Mat
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             src.data.set(ctx.getImageData(0, 0, canvas.width, canvas.height).data);
 
-            // --- Detection Pipeline ---
             cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
             cv.adaptiveThreshold(gray, processed, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, ADAPTIVE_THRESHOLD_BLOCK_SIZE, ADAPTIVE_THRESHOLD_C);
             cv.findContours(processed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
             let dangerDetected = false;
-            
-            // --- View Rendering Logic ---
-            if (currentView === 'normal') {
-                // Normal View: Draw bounding boxes
-                for (let i = 0; i < contours.size(); ++i) {
-                    const contour = contours.get(i);
-                    if (cv.contourArea(contour) > MIN_CONTOUR_AREA) {
-                        dangerDetected = true;
-                        let rect = cv.boundingRect(contour);
-                        cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [255, 0, 0, 255], 3);
+            let detectedRects = [];
+
+            // --- ✅ UNIFIED CONTOUR PROCESSING & MEMORY FIX ---
+            // This single loop processes contours for both views and prevents memory leaks.
+            for (let i = 0; i < contours.size(); ++i) {
+                const contour = contours.get(i);
+                if (cv.contourArea(contour) > MIN_CONTOUR_AREA) {
+                    dangerDetected = true;
+                    if (currentView === 'normal') {
+                        detectedRects.push(cv.boundingRect(contour));
                     }
                 }
-                cv.imshow('canvas', src); // Show original video with boxes
+                // *** CRITICAL FIX: Delete the contour object to prevent memory leak ***
+                contour.delete(); 
+            }
 
-            } else {
-                // Graphical View: Render heatmap overlay
+            // --- View Rendering Logic ---
+            if (currentView === 'normal') {
+                for (const rect of detectedRects) {
+                    cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), [255, 0, 0, 255], 3);
+                }
+                cv.imshow('canvas', src);
+
+            } else { // Graphical View
                 let colorMap = new cv.Mat();
                 let srcBGR = new cv.Mat();
                 let blended = new cv.Mat();
                 
-                // The 'processed' mat contains our detection mask
                 cv.applyColorMap(processed, colorMap, cv.COLORMAP_JET);
-                
-                // Convert original frame from RGBA to BGR for blending
                 cv.cvtColor(src, srcBGR, cv.COLOR_RGBA2BGR);
-
-                // Blend original frame with the heatmap (70% video, 30% heatmap)
                 cv.addWeighted(srcBGR, 0.7, colorMap, 0.3, 0, blended);
-
-                // Show the blended result on the canvas
                 cv.imshow('canvas', blended);
-
-                // Check for danger separately to show the alert
-                for (let i = 0; i < contours.size(); ++i) {
-                    if (cv.contourArea(contours.get(i)) > MIN_CONTOUR_AREA) {
-                        dangerDetected = true;
-                        break;
-                    }
-                }
                 
-                // Memory cleanup for graphical view
                 colorMap.delete();
                 srcBGR.delete();
                 blended.delete();
             }
             
-            // Update UI based on detection
             warningAlert.style.display = dangerDetected ? 'block' : 'none';
 
             // --- Final Memory Cleanup ---
