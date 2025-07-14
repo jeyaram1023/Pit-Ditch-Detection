@@ -1,265 +1,336 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Pit & Ditch Detection</title>
-  <style>
-    :root {
-      --neon-green: #39ff14;
-      --danger-red: #ff0000;
-      --background-dark: #1a1a1a;
-      --font-family: 'Courier New', Courier, monospace;
-    }
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background-color: var(--background-dark);
-      color: var(--neon-green);
-      font-family: var(--font-family);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-    }
-    #app-container {
-      width: 100%;
-      max-width: 600px;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-    }
-    #video-container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      border: 2px solid var(--neon-green);
-      box-shadow: 0 0 15px var(--neon-green);
-      display: none;
-    }
-    video, canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    #canvas { background: transparent; }
-    #controls {
-      position: absolute;
-      bottom: 20px;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      z-index: 10;
-    }
-    button {
-      background-color: rgba(26, 26, 26, 0.8);
-      border: 2px solid var(--neon-green);
-      color: var(--neon-green);
-      padding: 10px 16px;
-      font-family: var(--font-family);
-      font-size: 14px;
-      cursor: pointer;
-      border-radius: 5px;
-      box-shadow: 0 0 10px var(--neon-green);
-      text-transform: uppercase;
-    }
-    button:disabled {
-      background-color: #333;
-      color: #555;
-      box-shadow: none;
-      cursor: not-allowed;
-    }
-    button:active:not(:disabled) {
-      background-color: var(--neon-green);
-      color: var(--background-dark);
-    }
-    #warning-alert {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: var(--danger-red);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 5px;
-      font-size: 18px;
-      font-weight: bold;
-      z-index: 10;
-      display: none;
-      animation: blink 1s infinite;
-    }
-    @keyframes blink { 50% { opacity: 0.5; } }
-    #info-text { text-align: center; padding: 10px; }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>✅ Fixed: Pit & Ditch Detection</title>
+    <style>
+        :root {
+            --neon-green: #39ff14;
+            --danger-red: #ff0000;
+            --background-dark: #1a1a1a;
+            --font-family: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--background-dark);
+            color: var(--neon-green);
+            font-family: var(--font-family);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #info-text {
+            padding: 20px;
+            text-align: center;
+        }
+
+        #video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border: 2px solid var(--neon-green);
+            box-shadow: 0 0 15px var(--neon-green);
+            background: black;
+            display: none;
+        }
+
+        #video, #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #canvas {
+            background: transparent;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-evenly;
+            z-index: 10;
+        }
+
+        button {
+            background-color: rgba(26, 26, 26, 0.8);
+            border: 2px solid var(--neon-green);
+            color: var(--neon-green);
+            padding: 12px 18px;
+            font-size: 14px;
+            font-family: var(--font-family);
+            cursor: pointer;
+            border-radius: 6px;
+            box-shadow: 0 0 8px var(--neon-green);
+            transition: all 0.2s ease-in-out;
+            text-transform: uppercase;
+        }
+
+        button:active {
+            background-color: var(--neon-green);
+            color: var(--background-dark);
+            box-shadow: 0 0 15px var(--neon-green);
+        }
+
+        #warning-alert {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--danger-red);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 10;
+            display: none;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* --- Menu Button --- */
+        #menu-toggle {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 20;
+        }
+
+        #menu-panel {
+            position: absolute;
+            top: 60px;
+            right: 15px;
+            background-color: #000;
+            border: 2px solid var(--neon-green);
+            border-radius: 6px;
+            padding: 10px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 0 10px var(--neon-green);
+            z-index: 20;
+        }
+
+        #menu-panel button {
+            width: 100%;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-  <div id="app-container">
-    <div id="info-text">
-      <h2>Pit & Ditch Detection</h2>
-      <p>Press "📸 Start Camera" to begin analysis.</p>
-      <p id="opencv-status">Loading Vision Core...</p>
+    <div id="app-container">
+        <!-- Info Text -->
+        <div id="info-text">
+            <h2>Pit & Ditch Detection</h2>
+            <p>Press "Start Camera" to begin analysis.</p>
+            <p id="opencv-status">Loading Vision Core...</p>
+        </div>
+
+        <!-- Video + Canvas -->
+        <div id="video-container">
+            <video id="video" playsinline></video>
+            <canvas id="canvas"></canvas>
+            <div id="warning-alert">⚠️ DANGER DETECTED ⚠️</div>
+        </div>
+
+        <!-- Controls -->
+        <div id="controls">
+            <button id="camera-btn" disabled>Start Camera</button>
+            <button id="flash-btn" style="display: none;">Flash On</button>
+        </div>
+
+        <!-- Menu Button -->
+        <div id="menu-toggle">
+            <button onclick="toggleMenu()">☰ Menu</button>
+            <div id="menu-panel">
+                <button onclick="alert('Object Detection Coming Soon')">Objects</button>
+                <button onclick="alert('Face Detection Coming Soon')">Face</button>
+                <button onclick="alert('Help Section Coming Soon')">Help</button>
+            </div>
+        </div>
     </div>
-    <div id="video-container">
-      <video id="video" playsinline></video>
-      <canvas id="canvas"></canvas>
-      <div id="warning-alert">⚠️ DANGER DETECTED ⚠️</div>
-    </div>
-    <div id="controls">
-      <button id="camera-btn" disabled>📸 Start Camera</button>
-      <button id="view-switch-btn" style="display: none;">🔄 Graphical View</button>
-    </div>
-  </div>
 
-  <canvas id="hidden-canvas" style="display: none;"></canvas>
+    <!-- OpenCV -->
+    <script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady();" onerror="onOpenCvError();"></script>
 
-  <script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady();" onerror="onOpenCvError();"></script>
-  <script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const hiddenCanvas = document.getElementById('hidden-canvas');
-    const ctx = canvas.getContext('2d');
-    const cameraBtn = document.getElementById('camera-btn');
-    const viewSwitchBtn = document.getElementById('view-switch-btn');
-    const warningAlert = document.getElementById('warning-alert');
-    const videoContainer = document.getElementById('video-container');
-    const infoText = document.getElementById('info-text');
-    const opencvStatus = document.getElementById('opencv-status');
+    <!-- Main Script -->
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const cameraBtn = document.getElementById('camera-btn');
+        const flashBtn = document.getElementById('flash-btn');
+        const warningAlert = document.getElementById('warning-alert');
+        const videoContainer = document.getElementById('video-container');
+        const infoText = document.getElementById('info-text');
+        const opencvStatus = document.getElementById('opencv-status');
+        const ctx = canvas.getContext('2d');
 
-    let stream = null;
-    let isCameraOn = false;
-    let isGraphicalView = false;
-    let processingTimeout;
+        let stream = null;
+        let isCameraOn = false;
+        let isFlashOn = false;
+        let videoTrack = null;
 
-    const MIN_CONTOUR_AREA = 1500;
-    const ADAPTIVE_THRESHOLD_BLOCK_SIZE = 35;
-    const ADAPTIVE_THRESHOLD_C = 15;
+        const MIN_CONTOUR_AREA = 1500;
+        const ADAPTIVE_THRESHOLD_BLOCK_SIZE = 35;
+        const ADAPTIVE_THRESHOLD_C = 15;
 
-    function onOpenCvReady() {
-      opencvStatus.textContent = "Vision Core Ready.";
-      opencvStatus.style.color = 'var(--neon-green)';
-      cameraBtn.disabled = false;
-    }
+        function onOpenCvReady() {
+            opencvStatus.textContent = "Vision Core Ready.";
+            opencvStatus.style.color = 'var(--neon-green)';
+            cameraBtn.disabled = false;
+        }
 
-    function onOpenCvError() {
-      opencvStatus.textContent = "Error loading Vision Core.";
-      opencvStatus.style.color = 'var(--danger-red)';
-    }
+        function onOpenCvError() {
+            opencvStatus.textContent = "Error: Vision Core failed to load.";
+            opencvStatus.style.color = 'var(--danger-red)';
+        }
 
-    cameraBtn.addEventListener('click', async () => {
-      if (isCameraOn) stopCamera();
-      else await startCamera();
-    });
-
-    viewSwitchBtn.addEventListener('click', () => {
-      isGraphicalView = !isGraphicalView;
-      viewSwitchBtn.textContent = isGraphicalView ? '🔄 Normal View' : '🔄 Graphical View';
-    });
-
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        cameraBtn.addEventListener('click', async () => {
+            isCameraOn ? stopCamera() : await startCamera();
         });
-        video.srcObject = stream;
-        await video.play();
-        isCameraOn = true;
-        cameraBtn.textContent = '📸 Stop Camera';
-        viewSwitchBtn.style.display = 'inline-block';
-        videoContainer.style.display = 'block';
-        infoText.style.display = 'none';
-        processVideo();
-      } catch (error) {
-        alert("Camera error: " + error.message);
-        stopCamera();
-      }
-    }
 
-    function stopCamera() {
-      clearTimeout(processingTimeout);
-      if (stream) stream.getTracks().forEach(track => track.stop());
-      video.srcObject = null;
-      isCameraOn = false;
-      cameraBtn.textContent = '📸 Start Camera';
-      viewSwitchBtn.style.display = 'none';
-      warningAlert.style.display = 'none';
-      videoContainer.style.display = 'none';
-      infoText.style.display = 'block';
-    }
+        flashBtn.addEventListener('click', () => {
+            if (videoTrack) toggleFlash();
+        });
 
-    function processVideo() {
-      if (!isCameraOn || video.paused || video.ended || typeof cv === 'undefined' || !cv.Mat) return;
+        async function startCamera() {
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                await video.play();
 
-      let begin = Date.now();
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+                isCameraOn = true;
+                videoTrack = stream.getVideoTracks()[0];
 
-      let src = cv.imread(video);
-      let gray = new cv.Mat();
-      let processed = new cv.Mat();
-      let contours = new cv.MatVector();
-      let hierarchy = new cv.Mat();
-      let dangerDetected = false;
+                cameraBtn.textContent = 'Stop Camera';
+                flashBtn.style.display = 'inline-block';
+                videoContainer.style.display = 'block';
+                infoText.style.display = 'none';
 
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      cv.adaptiveThreshold(gray, processed, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, ADAPTIVE_THRESHOLD_BLOCK_SIZE, ADAPTIVE_THRESHOLD_C);
-      cv.findContours(processed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      if (isGraphicalView) {
-        let colorMap = new cv.Mat();
-        cv.applyColorMap(processed, colorMap, cv.COLORMAP_JET);
-        hiddenCanvas.width = colorMap.cols;
-        hiddenCanvas.height = colorMap.rows;
-        try {
-          cv.imshow('hidden-canvas', colorMap);
-          ctx.globalAlpha = 0.5;
-          ctx.drawImage(hiddenCanvas, 0, 0, canvas.width, canvas.height);
-          ctx.globalAlpha = 1.0;
-        } catch (e) {
-          console.error("cv.imshow error:", e.message);
-          alert("Rendering error. Reload the page.");
+                checkFlashCapability();
+                requestAnimationFrame(processVideo);
+            } catch (error) {
+                alert("Error accessing camera.");
+            }
         }
-        for (let i = 0; i < contours.size(); ++i) {
-          if (cv.contourArea(contours.get(i)) > MIN_CONTOUR_AREA) {
-            dangerDetected = true;
-            break;
-          }
+
+        function stopCamera() {
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+            isCameraOn = false;
+            flashBtn.style.display = 'none';
+            flashBtn.textContent = 'Flash On';
+            isFlashOn = false;
+            warningAlert.style.display = 'none';
+            videoContainer.style.display = 'none';
+            infoText.style.display = 'block';
+            cameraBtn.textContent = 'Start Camera';
         }
-        colorMap.delete();
-      } else {
-        for (let i = 0; i < contours.size(); ++i) {
-          const contour = contours.get(i);
-          if (cv.contourArea(contour) > MIN_CONTOUR_AREA) {
-            dangerDetected = true;
-            let rect = cv.boundingRect(contour);
-            ctx.strokeStyle = 'var(--danger-red)';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-            ctx.fillStyle = 'var(--danger-red)';
-            ctx.font = 'bold 18px var(--font-family)';
-            ctx.fillText('PIT/DITCH', rect.x + 5, rect.y - 10);
-          }
+
+        async function checkFlashCapability() {
+            try {
+                const capabilities = videoTrack.getCapabilities();
+                if (!capabilities.torch) flashBtn.style.display = 'none';
+            } catch {
+                flashBtn.style.display = 'none';
+            }
         }
-      }
 
-      warningAlert.style.display = dangerDetected ? 'block' : 'none';
+        function toggleFlash() {
+            isFlashOn = !isFlashOn;
+            videoTrack.applyConstraints({ advanced: [{ torch: isFlashOn }] });
+            flashBtn.textContent = isFlashOn ? 'Flash Off' : 'Flash On';
+        }
 
-      src.delete(); gray.delete(); processed.delete(); contours.delete(); hierarchy.delete();
+        function processVideo() {
+            if (!isCameraOn || video.paused || video.ended) return;
 
-      let delay = 1000 / 30 - (Date.now() - begin);
-      processingTimeout = setTimeout(processVideo, delay);
-    }
-  </script>
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            let src = cv.imread(canvas);
+            let gray = new cv.Mat();
+            let processed = new cv.Mat();
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+            let dangerDetected = false;
+
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+            cv.adaptiveThreshold(gray, processed, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, ADAPTIVE_THRESHOLD_BLOCK_SIZE, ADAPTIVE_THRESHOLD_C);
+            cv.findContours(processed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < contours.size(); ++i) {
+                const contour = contours.get(i);
+                const area = cv.contourArea(contour);
+                if (area > MIN_CONTOUR_AREA) {
+                    dangerDetected = true;
+                    const rect = cv.boundingRect(contour);
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                    ctx.fillStyle = 'red';
+                    ctx.font = 'bold 20px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.fillText('PIT/DITCH', rect.x + 5, rect.y - 10);
+                }
+                contour.delete();
+            }
+
+            warningAlert.style.display = dangerDetected ? 'block' : 'none';
+
+            src.delete(); gray.delete(); processed.delete();
+            contours.delete(); hierarchy.delete();
+
+            requestAnimationFrame(processVideo);
+        }
+
+        // Menu toggle logic
+        function toggleMenu() {
+            const panel = document.getElementById('menu-panel');
+            panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+        }
+    </script>
 </body>
 </html>
