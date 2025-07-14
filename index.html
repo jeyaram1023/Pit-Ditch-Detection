@@ -186,35 +186,42 @@
         });
 
         async function startCamera() {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                try {
-                    const constraints = { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } };
-                    stream = await navigator.mediaDevices.getUserMedia(constraints);
-                    video.srcObject = stream;
-                    await video.play();
-                    isCameraOn = true;
-                    videoTrack = stream.getVideoTracks()[0];
-                    cameraBtn.textContent = '📸 Stop Camera';
-                    flashBtn.style.display = 'inline-block';
-                    viewSwitchBtn.style.display = 'inline-block';
-                    videoContainer.style.display = 'block';
-                    infoText.style.display = 'none';
-                    checkFlashCapability();
-                    processVideo();
-                } catch (error) {
-                    // *** MODIFIED CODE SECTION ***
-                    // Provide more specific error messages to the user.
-                    if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
-                        alert("Camera access was denied. Please allow camera permission in your browser settings and reload the page.");
-                    } else if (error.name === "NotFoundError") {
-                         alert("No rear camera was found on your device. This app requires a rear-facing camera.");
-                    } else {
-                        alert(`Could not access camera: ${error.message}. Please ensure you are on a secure (HTTPS) connection.`);
-                    }
-                    stopCamera();
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+            const constraints = {
+                video: {
+                    facingMode: { ideal: 'environment' }  // Use environment/rear camera when available
                 }
+            };
+
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+            await video.play();
+
+            isCameraOn = true;
+            videoTrack = stream.getVideoTracks()[0];
+            cameraBtn.textContent = '📸 Stop Camera';
+            flashBtn.style.display = 'inline-block';
+            viewSwitchBtn.style.display = 'inline-block';
+            videoContainer.style.display = 'block';
+            infoText.style.display = 'none';
+            checkFlashCapability();
+            processVideo();
+        } catch (error) {
+            // 🎯 Show clearer error to users
+            if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+                alert("Camera access was denied. Please allow camera permission in your browser settings and reload the page.");
+            } else if (error.name === "NotFoundError") {
+                alert("No suitable camera was found on your device.");
+            } else {
+                alert(`Camera error: ${error.message}`);
             }
+            stopCamera();
         }
+    } else {
+        alert("Camera access not supported on this device/browser.");
+    }
+}
 
         function stopCamera() {
             clearTimeout(processingTimeout);
