@@ -286,22 +286,27 @@
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             if (isGraphicalView) {
-                let colorMap = new cv.Mat();
-                cv.applyColorMap(processed, colorMap, cv.COLORMAP_JET);
-                hiddenCanvas.width = colorMap.cols;
-                hiddenCanvas.height = colorMap.rows;
-                cv.imshow('hidden-canvas', colorMap);
-                ctx.globalAlpha = 0.5;
-                ctx.drawImage(hiddenCanvas, 0, 0, canvas.width, canvas.height);
-                ctx.globalAlpha = 1.0;
-                for (let i = 0; i < contours.size(); ++i) {
-                    if (cv.contourArea(contours.get(i)) > MIN_CONTOUR_AREA) {
-                        dangerDetected = true;
-                        break;
-                    }
-                }
-                colorMap.delete();
-            } else {
+    let colorMap = new cv.Mat();
+    cv.applyColorMap(processed, colorMap, cv.COLORMAP_JET);
+
+    hiddenCanvas.width = colorMap.cols;
+    hiddenCanvas.height = colorMap.rows;
+
+    // ✅ Ensure the canvas is ready before drawing
+    try {
+        cv.imshow('hidden-canvas', colorMap);
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(hiddenCanvas, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1.0;
+    } catch (e) {
+        console.error("cv.imshow error:", e);
+        alert("Rendering error. Try reloading the page.");
+    }
+
+    // ... detection logic ...
+    colorMap.delete();
+}
+            else {
                 for (let i = 0; i < contours.size(); ++i) {
                     const contour = contours.get(i);
                     if (cv.contourArea(contour) > MIN_CONTOUR_AREA) {
